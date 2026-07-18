@@ -1346,7 +1346,10 @@ function UserMessagePreviewAnnotationCard(props: {
       ) : null}
       <div className="min-w-0 px-2.5 py-2">
         {props.annotation.comment ? (
-          <div className="max-w-80 truncate text-xs font-medium text-foreground/90">
+          <div
+            dir="auto"
+            className="max-w-80 truncate text-start text-xs font-medium text-foreground/90"
+          >
             {props.annotation.comment}
           </div>
         ) : null}
@@ -1640,7 +1643,7 @@ function UserMessageReviewCommentCard({ comment }: { comment: ReviewCommentConte
         </div>
       </div>
       {comment.text.length > 0 && (
-        <div className="whitespace-pre-wrap wrap-break-word text-sm">
+        <div dir="auto" className="whitespace-pre-wrap wrap-break-word text-start text-sm">
           <SkillInlineText text={comment.text} skills={ctx.skills} />
         </div>
       )}

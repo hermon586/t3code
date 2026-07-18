@@ -486,6 +486,7 @@ label:has(> select#reasoning-effort) select {
 .chat-markdown {
   min-width: 0;
   overflow-wrap: anywhere;
+  text-align: start;
   word-break: break-word;
 }
 
@@ -541,12 +542,12 @@ label:has(> select#reasoning-effort) select {
 }
 
 .chat-markdown ul {
-  padding-left: 1.25rem;
+  padding-inline-start: 1.25rem;
   list-style-type: disc;
 }
 
 .chat-markdown ol {
-  padding-left: 1.25rem;
+  padding-inline-start: 1.25rem;
   list-style-type: decimal;
 }
 
@@ -576,7 +577,8 @@ label:has(> select#reasoning-effort) select {
 }
 
 .chat-markdown li.task-list-item input[type="checkbox"] {
-  margin: 0 0.35em 0.15em -1.25rem;
+  margin-block: 0 0.15em;
+  margin-inline: -1.25rem 0.35em;
   vertical-align: middle;
 }
 
@@ -593,6 +595,10 @@ label:has(> select#reasoning-effort) select {
   background-size: 4px 2px;
 }
 
+.chat-markdown a {
+  unicode-bidi: isolate;
+}
+
 .chat-markdown .chat-markdown-link-favicon {
   @apply inline-flex;
   width: 14px;
@@ -606,8 +612,8 @@ label:has(> select#reasoning-effort) select {
 }
 
 .chat-markdown blockquote {
-  border-left: 2px solid var(--border);
-  padding-left: 0.8rem;
+  border-inline-start: 2px solid var(--border);
+  padding-inline-start: 0.8rem;
   color: var(--muted-foreground);
 }
 
@@ -621,7 +627,7 @@ label:has(> select#reasoning-effort) select {
 
 .chat-markdown section[data-footnotes] ol {
   margin: 0;
-  padding-left: 1.25rem;
+  padding-inline-start: 1.25rem;
 }
 
 .chat-markdown section[data-footnotes] li + li {
@@ -647,6 +653,8 @@ label:has(> select#reasoning-effort) select {
   padding: 0.1rem 0.35rem;
   color: var(--foreground);
   font-size: 0.75rem;
+  direction: ltr;
+  unicode-bidi: isolate;
 }
 
 .chat-markdown a.chat-markdown-file-link {
@@ -671,6 +679,9 @@ label:has(> select#reasoning-effort) select {
   border-radius: 0.75rem;
   background: var(--muted);
   padding: 0.8rem 0.9rem;
+  direction: ltr;
+  text-align: left;
+  unicode-bidi: isolate;
 }
 
 .chat-markdown pre code {
@@ -722,6 +733,9 @@ label:has(> select#reasoning-effort) select {
   border: 1px solid var(--border);
   border-radius: 0.75rem;
   background: color-mix(in srgb, var(--muted) 78%, var(--background));
+  direction: ltr;
+  text-align: left;
+  unicode-bidi: isolate;
 }
 
 .chat-markdown .chat-markdown-codeblock-header {
@@ -785,12 +799,13 @@ label:has(> select#reasoning-effort) select {
   overflow-wrap: normal;
   word-break: normal;
   font-size: 0.75rem;
+  direction: ltr;
 }
 
 .chat-markdown th,
 .chat-markdown td {
   padding: 0.45rem 0.75rem;
-  text-align: left;
+  text-align: start;
 }
 
 .chat-markdown thead th {

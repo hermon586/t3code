@@ -61,6 +61,7 @@ import {
   serializeTableElementToMarkdown,
 } from "../markdown-clipboard";
 import { remarkNormalizeListItemIndentation } from "../markdown-list-indentation";
+import { rehypeAutoDirection } from "../markdown-direction";
 import {
   normalizeMarkdownLinkDestination,
   resolveMarkdownFileLinkMeta,
@@ -181,6 +182,7 @@ const CHAT_MARKDOWN_REMARK_PLUGINS_WITH_BREAKS = [
 const CHAT_MARKDOWN_REHYPE_PLUGINS = [
   rehypeRaw,
   [rehypeSanitize, CHAT_MARKDOWN_SANITIZE_SCHEMA],
+  rehypeAutoDirection,
 ] satisfies NonNullable<ReactMarkdownOptions["rehypePlugins"]>;
 
 function extractFenceLanguage(className: string | undefined): string {
@@ -397,7 +399,7 @@ function MarkdownTable({ children, ...props }: React.ComponentProps<"table">) {
         hideScrollbars
         className="w-full max-w-full rounded-none"
       >
-        <table ref={tableRef} {...props}>
+        <table ref={tableRef} {...props} dir="ltr">
           {children}
         </table>
       </ScrollArea>
@@ -471,12 +473,13 @@ function MarkdownDetails({
     <Collapsible
       defaultOpen={open}
       onOpenChange={setIsOpen}
+      dir="auto"
       className="chat-markdown-details my-2 border-y border-border/60"
       data-markdown-details=""
       data-markdown-details-open={isOpen ? "true" : "false"}
     >
       <CollapsibleTrigger
-        className="flex w-full items-center gap-2 py-2 text-left text-sm font-medium text-foreground data-panel-open:[&_svg]:rotate-90"
+        className="flex w-full items-center gap-2 py-2 text-start text-sm font-medium text-foreground data-panel-open:[&_svg]:rotate-90"
         data-markdown-details-summary=""
       >
         <ChevronRightIcon
@@ -595,6 +598,7 @@ function MarkdownCodeBlock({
   return (
     <div
       className="chat-markdown-codeblock leading-snug"
+      dir="ltr"
       data-language={language}
       data-wrap={wrapped ? "true" : "false"}
     >
@@ -1197,6 +1201,7 @@ const MarkdownFileLink = memo(function MarkdownFileLink({
         render={
           <a
             href={href}
+            dir="ltr"
             className={cn(CHAT_FILE_TAG_CHIP_CLASS_NAME, MARKDOWN_FILE_LINK_CLASS_NAME, className)}
             data-markdown-copy={copyMarkdown}
             onClick={(event) => {
@@ -1401,6 +1406,7 @@ function ChatMarkdown({
             <a
               {...props}
               href={href}
+              dir="auto"
               target={isSameDocumentLink ? undefined : "_blank"}
               rel={isSameDocumentLink ? undefined : "noopener noreferrer"}
               onClick={(event) => {
@@ -1512,7 +1518,11 @@ function ChatMarkdown({
       pre({ node, children, ...props }) {
         const codeBlock = extractCodeBlock(children);
         if (!codeBlock) {
-          return <pre {...props}>{children}</pre>;
+          return (
+            <pre {...props} dir="ltr">
+              {children}
+            </pre>
+          );
         }
 
         const language = extractFenceLanguage(codeBlock.className);
@@ -1556,6 +1566,7 @@ function ChatMarkdown({
 
   return (
     <div
+      dir="auto"
       className={cn(
         "chat-markdown w-full min-w-0 text-sm leading-relaxed text-foreground/80",
         className,
