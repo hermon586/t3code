@@ -114,6 +114,7 @@ import {
 interface ChatMarkdownProps {
   text: string;
   cwd: string | undefined;
+  direction?: "ltr" | "rtl";
   threadRef?: ScopedThreadRef | undefined;
   onTaskListChange?: ((input: { markerOffset: number; checked: boolean }) => void) | undefined;
   isStreaming?: boolean;
@@ -1445,6 +1446,7 @@ function areMarkdownFileLinkPropsEqual(
 function ChatMarkdown({
   text,
   cwd,
+  direction,
   threadRef,
   onTaskListChange,
   isStreaming = false,
@@ -1907,6 +1909,7 @@ function ChatMarkdown({
         "chat-markdown w-full min-w-0 text-sm leading-relaxed text-foreground/80 [overflow-wrap:anywhere] [word-break:break-word]",
         className,
       )}
+      dir={direction}
       onCopy={handleCopy}
     >
       <ReactMarkdown
