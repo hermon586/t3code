@@ -1,0 +1,107 @@
+name: Fork Linux Release
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/fork-release-linux.yml"
+      - "apps/desktop/**"
+      - "apps/server/**"
+      - "apps/web/**"
+      - "packages/**"
+      - "scripts/**"
+      - "package.json"
+      - "pnpm-lock.yaml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: fork-linux-release
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build and publish x64 AppImage
+    if: github.repository == 'hermon586/t3code'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Setup Vite+
+        uses: voidzero-dev/setup-vp@v1
+        with:
+          node-version-file: package.json
+          cache: true
+          run-install: true
+
+      - name: Ensure Electron runtime is installed
+        run: vp run --filter @t3tools/desktop ensure:electron
+
+      - id: release_meta
+        name: Resolve fork release version
+        shell: bash
+        run: |
+          fork_run_number="$((2000000000 + GITHUB_RUN_NUMBER))"
+          node scripts/resolve-nightly-release.ts \
+            --date "$(date -u +%Y%m%d)" \
+            --run-number "$fork_run_number" \
+            --sha "$GITHUB_SHA" \
+            --github-output
+
+      - name: Install AppImage build dependency
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y imagemagick
+
+      - name: Build Linux AppImage
+        env:
+          T3CODE_CLERK_CLI_OAUTH_CLIENT_ID: ${{ vars.T3CODE_CLERK_CLI_OAUTH_CLIENT_ID }}
+          T3CODE_CLERK_JWT_TEMPLATE: ${{ vars.T3CODE_CLERK_JWT_TEMPLATE }}
+          T3CODE_CLERK_PUBLISHABLE_KEY: ${{ vars.T3CODE_CLERK_PUBLISHABLE_KEY }}
+          T3CODE_DESKTOP_UPDATE_REPOSITORY: ${{ github.repository }}
+          T3CODE_RELAY_URL: ${{ vars.T3CODE_RELAY_URL }}
+        run: |
+          node scripts/update-release-package-versions.ts "${{ steps.release_meta.outputs.version }}"
+          vp run dist:desktop:artifact \
+            --platform linux \
+            --target AppImage \
+            --arch x64 \
+            --build-version "${{ steps.release_meta.outputs.version }}" \
+            --verbose
+
+      - name: Verify release assets
+        shell: bash
+        run: |
+          shopt -s nullglob
+          appimages=(release/*.AppImage)
+          manifests=(release/*.yml)
+          (( ${#appimages[@]} == 1 ))
+          (( ${#manifests[@]} >= 1 ))
+          chmod +x "${appimages[0]}"
+          "${appimages[0]}" --appimage-extract >/dev/null
+          test -f squashfs-root/resources/app.asar
+
+      - name: Publish fork release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.release_meta.outputs.tag }}
+          target_commitish: ${{ github.sha }}
+          name: T3 Code RTL ${{ steps.release_meta.outputs.version }}
+          body: |
+            Automated Linux x64 build from the maintained RTL fork.
+
+            Upstream: `pingdotgg/t3code`
+            Source commit: `${{ github.sha }}`
+          prerelease: true
+          make_latest: false
+          files: |
+            release/*.AppImage
+            release/*.yml
+          fail_on_unmatched_files: true
