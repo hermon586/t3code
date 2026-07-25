@@ -164,6 +164,7 @@ import {
 interface ChatMarkdownProps {
   text: string;
   cwd: string | undefined;
+  direction?: "ltr" | "rtl";
   threadRef?: ScopedThreadRef | undefined;
   /** Environment that owns non-thread markdown, such as a pull request panel. */
   environmentId?: EnvironmentId | undefined;
@@ -1801,6 +1802,7 @@ function areMarkdownFileLinkPropsEqual(
 function ChatMarkdown({
   text,
   cwd,
+  direction,
   threadRef,
   environmentId: explicitEnvironmentId,
   onTaskListChange,
@@ -2452,6 +2454,7 @@ function ChatMarkdown({
         "chat-markdown w-full min-w-0 text-sm leading-relaxed text-foreground/80 [overflow-wrap:anywhere] [word-break:break-word]",
         className,
       )}
+      dir={direction}
       onCopy={handleCopy}
     >
       <ReactMarkdown
