@@ -47,6 +47,8 @@ import {
 } from "../../lib/diffRendering";
 import ChatMarkdown from "../ChatMarkdown";
 import {
+  AlignLeftIcon,
+  AlignRightIcon,
   BotIcon,
   CheckIcon,
   ChevronDownIcon,
@@ -107,6 +109,8 @@ import { cn } from "~/lib/utils";
 import { useUiStateStore } from "~/uiStateStore";
 import { type TimestampFormat } from "@t3tools/contracts/settings";
 import { formatChatTimestampTooltip, formatShortTimestamp } from "../../timestampFormat";
+import { useLocalStorage } from "../../hooks/useLocalStorage";
+import * as Schema from "effect/Schema";
 
 import {
   buildInlineTerminalContextText,
@@ -130,6 +134,7 @@ import {
 // ---------------------------------------------------------------------------
 
 interface TimelineRowSharedState {
+  assistantOutputDirection: AssistantOutputDirection;
   timestampFormat: TimestampFormat;
   routeThreadKey: string;
   threadRef: ScopedThreadRef | null;
@@ -141,6 +146,7 @@ interface TimelineRowSharedState {
   onRevertUserMessage: (messageId: MessageId) => void;
   onImageExpand: (preview: ExpandedImagePreview) => void;
   onOpenTurnDiff: (turnId: TurnId, filePath?: string) => void;
+  onToggleAssistantOutputDirection: () => void;
   onToggleTurnFold: (turnId: TurnId) => void;
   onToggleWorkGroup: (groupId: string, anchorElement?: HTMLElement) => void;
   agentPanelModel: AgentPanelModel;
@@ -189,6 +195,9 @@ function TimelineLoadEarlierHeader({
 }
 const TIMELINE_LIST_FOOTER = <div className="h-3 sm:h-4" />;
 const EMPTY_TIMELINE_SKILLS: ReadonlyArray<Pick<ServerProviderSkill, "name" | "displayName">> = [];
+const AssistantOutputDirection = Schema.Literals(["ltr", "rtl"]);
+type AssistantOutputDirection = typeof AssistantOutputDirection.Type;
+const ASSISTANT_OUTPUT_DIRECTION_STORAGE_KEY = "t3code:assistant-output-direction";
 
 // ---------------------------------------------------------------------------
 // Props (public API)
@@ -276,9 +285,17 @@ export const MessagesTimeline = memo(function MessagesTimeline({
   topFadeEnabled = false,
   loadEarlier = null,
 }: MessagesTimelineProps) {
+  const [assistantOutputDirection, setAssistantOutputDirection] = useLocalStorage(
+    ASSISTANT_OUTPUT_DIRECTION_STORAGE_KEY,
+    "ltr",
+    AssistantOutputDirection,
+  );
   const [expandedTurnIds, setExpandedTurnIds] = useState<ReadonlySet<TurnId>>(new Set());
   const [expandedWorkGroupIds, setExpandedWorkGroupIds] = useState<ReadonlySet<string>>(new Set());
   const [minimapStripMap] = useState(() => new Map<string, HTMLSpanElement>());
+  const onToggleAssistantOutputDirection = useCallback(() => {
+    setAssistantOutputDirection((current) => (current === "ltr" ? "rtl" : "ltr"));
+  }, [setAssistantOutputDirection]);
 
   const onToggleTurnFold = useCallback((turnId: TurnId) => {
     setExpandedTurnIds((existing) => {
@@ -473,6 +490,7 @@ export const MessagesTimeline = memo(function MessagesTimeline({
 
   const sharedState = useMemo<TimelineRowSharedState>(
     () => ({
+      assistantOutputDirection,
       timestampFormat,
       routeThreadKey,
       threadRef: parseScopedThreadKey(routeThreadKey),
@@ -484,12 +502,14 @@ export const MessagesTimeline = memo(function MessagesTimeline({
       onRevertUserMessage,
       onImageExpand,
       onOpenTurnDiff,
+      onToggleAssistantOutputDirection,
       onToggleTurnFold,
       onToggleWorkGroup,
       agentPanelModel,
       onOpenAgents,
     }),
     [
+      assistantOutputDirection,
       timestampFormat,
       routeThreadKey,
       markdownCwd,
@@ -500,6 +520,7 @@ export const MessagesTimeline = memo(function MessagesTimeline({
       onRevertUserMessage,
       onImageExpand,
       onOpenTurnDiff,
+      onToggleAssistantOutputDirection,
       onToggleTurnFold,
       onToggleWorkGroup,
       agentPanelModel,
@@ -1100,6 +1121,7 @@ function AssistantTimelineRow({ row }: { row: Extract<TimelineRow, { kind: "mess
         <ChatMarkdown
           text={messageText}
           cwd={ctx.markdownCwd}
+          direction={ctx.assistantOutputDirection}
           threadRef={ctx.threadRef ?? undefined}
           isStreaming={Boolean(row.message.streaming)}
           skills={ctx.skills}
@@ -1113,6 +1135,7 @@ function AssistantTimelineRow({ row }: { row: Extract<TimelineRow, { kind: "mess
         {row.showAssistantMeta ? (
           <div className="mt-1.5 flex items-center gap-2 text-xs tabular-nums opacity-0 transition-opacity duration-200 focus-within:opacity-100 group-hover/assistant:opacity-100">
             <AssistantCopyButton row={row} />
+            <AssistantOutputDirectionButton />
             {!row.message.streaming && (
               <Tooltip>
                 <TooltipTrigger
@@ -1129,6 +1152,37 @@ function AssistantTimelineRow({ row }: { row: Extract<TimelineRow, { kind: "mess
         ) : null}
       </div>
     </>
+  );
+}
+
+function AssistantOutputDirectionButton() {
+  const ctx = use(TimelineRowCtx);
+  const isRtl = ctx.assistantOutputDirection === "rtl";
+  const label = isRtl
+    ? "Display assistant output left to right"
+    : "Display assistant output right to left";
+
+  return (
+    <Tooltip>
+      <TooltipTrigger
+        render={
+          <Button
+            type="button"
+            size="xs"
+            variant="ghost"
+            aria-label={label}
+            aria-pressed={isRtl}
+            onClick={ctx.onToggleAssistantOutputDirection}
+            className="text-muted-foreground hover:text-foreground"
+          />
+        }
+      >
+        {isRtl ? <AlignLeftIcon className="size-3" /> : <AlignRightIcon className="size-3" />}
+      </TooltipTrigger>
+      <TooltipPopup side="top">
+        {isRtl ? "Left-to-right output" : "Right-to-left output"}
+      </TooltipPopup>
+    </Tooltip>
   );
 }
 
