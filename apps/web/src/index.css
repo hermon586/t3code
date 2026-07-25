@@ -1584,6 +1584,43 @@ code {
 
 /* Chat markdown rendering */
 
+.chat-markdown[dir="rtl"] {
+  text-align: right;
+}
+
+.chat-markdown[dir="rtl"] ul,
+.chat-markdown[dir="rtl"] ol {
+  padding-right: 1.25rem;
+  padding-left: 0;
+}
+
+.chat-markdown[dir="rtl"] blockquote {
+  border-right: 2px solid var(--border);
+  border-left: 0;
+  padding-right: 0.8rem;
+  padding-left: 0;
+}
+
+.chat-markdown[dir="rtl"] li.task-list-item input[type="checkbox"] {
+  margin: 0 -1.25rem 0 0.35em;
+}
+
+.chat-markdown[dir="rtl"] :not(pre) > code {
+  direction: ltr;
+  unicode-bidi: isolate;
+}
+
+.chat-markdown[dir="rtl"] pre,
+.chat-markdown[dir="rtl"] .chat-markdown-codeblock {
+  direction: ltr;
+  text-align: left;
+}
+
+.chat-markdown[dir="rtl"] th,
+.chat-markdown[dir="rtl"] td {
+  text-align: right;
+}
+
 .chat-markdown > :first-child {
   margin-top: 0;
 }
