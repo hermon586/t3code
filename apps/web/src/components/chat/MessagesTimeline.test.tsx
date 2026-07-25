@@ -1,7 +1,7 @@
 import { CheckpointRef, EnvironmentId, MessageId, TurnId } from "@t3tools/contracts";
 import { createRef, type ReactNode, type Ref } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { beforeAll, describe, expect, it, vi } from "vite-plus/test";
+import { beforeAll, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 import type { LegendListRef } from "@legendapp/list/react";
 
 vi.mock("@legendapp/list/react", async () => {
@@ -131,6 +131,7 @@ function matchMedia() {
 }
 
 let MessagesTimeline: typeof import("./MessagesTimeline").MessagesTimeline;
+const localStorageValues = new Map<string, string>();
 
 beforeAll(async () => {
   const classList = {
@@ -140,16 +141,19 @@ beforeAll(async () => {
     contains: () => false,
   };
 
-  vi.stubGlobal("localStorage", {
-    getItem: () => null,
-    setItem: () => {},
-    removeItem: () => {},
-    clear: () => {},
-  });
+  const localStorage = {
+    getItem: (key: string) => localStorageValues.get(key) ?? null,
+    setItem: (key: string, value: string) => localStorageValues.set(key, value),
+    removeItem: (key: string) => localStorageValues.delete(key),
+    clear: () => localStorageValues.clear(),
+  };
+  vi.stubGlobal("localStorage", localStorage);
   vi.stubGlobal("window", {
+    localStorage,
     matchMedia,
     addEventListener: () => {},
     removeEventListener: () => {},
+    dispatchEvent: () => true,
     requestAnimationFrame: (callback: FrameRequestCallback) => {
       callback(0);
       return 0;
@@ -166,6 +170,10 @@ beforeAll(async () => {
 
   ({ MessagesTimeline } = await import("./MessagesTimeline"));
 }, 30_000);
+
+beforeEach(() => {
+  localStorageValues.clear();
+});
 
 const ACTIVE_THREAD_ENVIRONMENT_ID = EnvironmentId.make("environment-local");
 const MESSAGE_CREATED_AT = "2026-03-17T19:12:28.000Z";
@@ -223,6 +231,41 @@ function buildUserTimelineEntry(text: string) {
 }
 
 describe("MessagesTimeline", () => {
+  it("renders assistant output in the selected reading direction", () => {
+    const timelineEntries = [
+      {
+        id: "entry-assistant",
+        kind: "message" as const,
+        createdAt: MESSAGE_CREATED_AT,
+        message: {
+          id: MessageId.make("message-assistant"),
+          role: "assistant" as const,
+          text: "שלום, זה פלט בעברית.",
+          turnId: TurnId.make("turn-assistant"),
+          createdAt: MESSAGE_CREATED_AT,
+          updatedAt: MESSAGE_CREATED_AT,
+          streaming: false,
+        },
+      },
+    ];
+
+    const leftToRightMarkup = renderToStaticMarkup(
+      <MessagesTimeline {...buildProps()} timelineEntries={timelineEntries} />,
+    );
+    expect(leftToRightMarkup).toContain('class="chat-markdown');
+    expect(leftToRightMarkup).toContain('dir="ltr"');
+    expect(leftToRightMarkup).toContain('aria-label="Display assistant output right to left"');
+    expect(leftToRightMarkup).toContain('aria-pressed="false"');
+
+    localStorageValues.set("t3code:assistant-output-direction", JSON.stringify("rtl"));
+    const rightToLeftMarkup = renderToStaticMarkup(
+      <MessagesTimeline {...buildProps()} timelineEntries={timelineEntries} />,
+    );
+    expect(rightToLeftMarkup).toContain('dir="rtl"');
+    expect(rightToLeftMarkup).toContain('aria-label="Display assistant output left to right"');
+    expect(rightToLeftMarkup).toContain('aria-pressed="true"');
+  });
+
   it("uses the larger leading inset only when the top fade is enabled", () => {
     const timelineEntries = [buildUserTimelineEntry("Hello")];
 
