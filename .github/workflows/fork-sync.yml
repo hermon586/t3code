@@ -26,6 +26,7 @@ jobs:
         with:
           fetch-depth: 0
           ref: main
+          ssh-key: ${{ secrets.FORK_SYNC_SSH_KEY }}
 
       - name: Configure upstream
         run: |
