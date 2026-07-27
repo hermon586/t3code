@@ -6,7 +6,6 @@ on:
   workflow_dispatch:
 
 permissions:
-  actions: write
   contents: write
   issues: write
 
@@ -149,9 +148,3 @@ jobs:
             gh issue close "$issue_number" \
               --comment "The automatic upstream rebase is working again."
           fi
-
-      - name: Build a new Linux release
-        if: steps.rebase.outputs.changed == 'true' && steps.rebase.outputs.release_needed == 'true'
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: gh workflow run fork-release-linux.yml --repo "$GITHUB_REPOSITORY" --ref main
