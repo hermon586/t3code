@@ -94,6 +94,7 @@ jobs:
 
       - name: Report rebase conflict
         if: steps.rebase.outputs.conflict == 'true'
+        continue-on-error: true
         env:
           GH_TOKEN: ${{ github.token }}
           CONFLICT_FILES: ${{ steps.rebase.outputs.conflict_files }}
@@ -118,13 +119,20 @@ jobs:
           } > "$body_file"
 
           if [[ -n "$issue_number" ]]; then
-            gh issue comment "$issue_number" --body-file "$body_file"
+            gh api \
+              --method POST \
+              "repos/$GITHUB_REPOSITORY/issues/$issue_number/comments" \
+              --raw-field "body=$(<"$body_file")"
           else
-            gh issue create --title "Automatic upstream sync conflict" --body-file "$body_file"
+            gh api \
+              --method POST \
+              "repos/$GITHUB_REPOSITORY/issues" \
+              --raw-field "title=Automatic upstream sync conflict" \
+              --raw-field "body=$(<"$body_file")"
           fi
 
       - name: Fail when manual conflict resolution is required
-        if: steps.rebase.outputs.conflict == 'true'
+        if: always() && steps.rebase.outputs.conflict == 'true'
         run: exit 1
 
       - name: Push rebased main
