@@ -76,6 +76,8 @@ import { PREFERRED_HIGHLIGHTER } from "../../lib/syntaxHighlighting";
 import ChatMarkdown, { ChatMarkdownAssetImage } from "../ChatMarkdown";
 import { T3Wordmark } from "../T3Wordmark";
 import {
+  AlignLeftIcon,
+  AlignRightIcon,
   BotIcon,
   BrainIcon,
   CheckIcon,
@@ -163,6 +165,9 @@ import { cn } from "~/lib/utils";
 import { useUiStateStore } from "~/uiStateStore";
 import { type TimestampFormat } from "@t3tools/contracts/settings";
 import { formatChatTimestampTooltip, formatDayAwareTimestamp } from "../../timestampFormat";
+import { useLocalStorage } from "../../hooks/useLocalStorage";
+import * as Schema from "effect/Schema";
+
 import {
   buildInlineTerminalContextText,
   formatInlineTerminalContextLabel,
@@ -188,6 +193,7 @@ import {
 interface TimelineRowSharedState {
   citationRequest: AssistantCitationTarget | null;
   listRef: React.RefObject<LegendListRef | null>;
+  assistantOutputDirection: AssistantOutputDirection;
   timestampFormat: TimestampFormat;
   routeThreadKey: string;
   threadRef: ScopedThreadRef | null;
@@ -202,6 +208,7 @@ interface TimelineRowSharedState {
   onFileOpen: (attachment: ChatFileAttachment) => void;
   onFileDownload: (attachment: ChatFileAttachment) => void;
   onOpenTurnDiff: (turnId: TurnId, filePath?: string) => void;
+  onToggleAssistantOutputDirection: () => void;
   onToggleTurnFold: (turnId: TurnId) => void;
   onToggleWorkGroup: (groupId: string, anchorKey: string) => void;
   onToggleWorkEntry: (anchorKey: string) => void;
@@ -282,6 +289,9 @@ const TIMELINE_MAINTAIN_SCROLL_AT_END = {
     layout: true,
   },
 } as const satisfies MaintainScrollAtEndOptions;
+const AssistantOutputDirection = Schema.Literals(["ltr", "rtl"]);
+type AssistantOutputDirection = typeof AssistantOutputDirection.Type;
+const ASSISTANT_OUTPUT_DIRECTION_STORAGE_KEY = "t3code:assistant-output-direction";
 
 // ---------------------------------------------------------------------------
 // Props (public API)
@@ -382,6 +392,11 @@ export const MessagesTimeline = memo(function MessagesTimeline({
   topFadeEnabled = false,
   loadEarlier = null,
 }: MessagesTimelineProps) {
+  const [assistantOutputDirection, setAssistantOutputDirection] = useLocalStorage(
+    ASSISTANT_OUTPUT_DIRECTION_STORAGE_KEY,
+    "ltr",
+    AssistantOutputDirection,
+  );
   const [expandedTurnIds, setExpandedTurnIds] = useState<ReadonlySet<TurnId>>(new Set());
   const citationThreadRef = useMemo(() => parseScopedThreadKey(routeThreadKey), [routeThreadKey]);
   const expandCitedTurn = useCallback((turnId: TurnId) => {
@@ -400,6 +415,10 @@ export const MessagesTimeline = memo(function MessagesTimeline({
   const disclosureAnchorKeyRef = useRef<string | null>(null);
   const disclosureSettleFrameRef = useRef<number | null>(null);
   const disclosureSettleSecondFrameRef = useRef<number | null>(null);
+
+  const onToggleAssistantOutputDirection = useCallback(() => {
+    setAssistantOutputDirection((current) => (current === "ltr" ? "rtl" : "ltr"));
+  }, [setAssistantOutputDirection]);
   useEffect(() => {
     return () => {
       if (disclosureSettleFrameRef.current !== null) {
@@ -638,6 +657,7 @@ export const MessagesTimeline = memo(function MessagesTimeline({
     () => ({
       citationRequest: readyCitationRequest,
       listRef,
+      assistantOutputDirection,
       timestampFormat,
       routeThreadKey,
       // Keep Markdown callbacks memoized during unrelated activity updates.
@@ -653,6 +673,7 @@ export const MessagesTimeline = memo(function MessagesTimeline({
       onFileOpen,
       onFileDownload,
       onOpenTurnDiff,
+      onToggleAssistantOutputDirection,
       onToggleTurnFold,
       onToggleWorkGroup,
       onToggleWorkEntry: suspendEndScrollMaintenanceForDisclosure,
@@ -663,6 +684,7 @@ export const MessagesTimeline = memo(function MessagesTimeline({
     [
       readyCitationRequest,
       listRef,
+      assistantOutputDirection,
       timestampFormat,
       routeThreadKey,
       citationThreadRef,
@@ -677,6 +699,7 @@ export const MessagesTimeline = memo(function MessagesTimeline({
       onFileOpen,
       onFileDownload,
       onOpenTurnDiff,
+      onToggleAssistantOutputDirection,
       onToggleTurnFold,
       onToggleWorkGroup,
       suspendEndScrollMaintenanceForDisclosure,
@@ -1473,6 +1496,7 @@ function AssistantTimelineRow({ row }: { row: Extract<TimelineRow, { kind: "mess
           <ChatMarkdown
             text={messageText}
             cwd={ctx.markdownCwd}
+            direction={ctx.assistantOutputDirection}
             threadRef={ctx.threadRef ?? undefined}
             isStreaming={Boolean(row.message.streaming)}
             lineBreaks={shouldPreserveAssistantLineBreaks(messageText)}
@@ -1548,6 +1572,7 @@ function AssistantMessageMeta({
         showCopyButton={showCopyButton}
         streaming={copyStreaming}
       />
+      <AssistantOutputDirectionButton />
       {!message.streaming && (
         <Tooltip>
           <TooltipTrigger render={<p className="text-muted-foreground text-xs tabular-nums" />}>
@@ -1559,6 +1584,37 @@ function AssistantMessageMeta({
         </Tooltip>
       )}
     </div>
+  );
+}
+
+function AssistantOutputDirectionButton() {
+  const ctx = use(TimelineRowCtx);
+  const isRtl = ctx.assistantOutputDirection === "rtl";
+  const label = isRtl
+    ? "Display assistant output left to right"
+    : "Display assistant output right to left";
+
+  return (
+    <Tooltip>
+      <TooltipTrigger
+        render={
+          <Button
+            type="button"
+            size="xs"
+            variant="ghost"
+            aria-label={label}
+            aria-pressed={isRtl}
+            onClick={ctx.onToggleAssistantOutputDirection}
+            className="text-muted-foreground hover:text-foreground"
+          />
+        }
+      >
+        {isRtl ? <AlignLeftIcon className="size-3" /> : <AlignRightIcon className="size-3" />}
+      </TooltipTrigger>
+      <TooltipPopup side="top">
+        {isRtl ? "Left-to-right output" : "Right-to-left output"}
+      </TooltipPopup>
+    </Tooltip>
   );
 }
 
