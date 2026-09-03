@@ -46,7 +46,6 @@ jobs:
           if git merge-base --is-ancestor upstream/main HEAD; then
             echo "changed=false" >> "$GITHUB_OUTPUT"
             echo "conflict=false" >> "$GITHUB_OUTPUT"
-            echo "release_needed=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
@@ -60,7 +59,6 @@ jobs:
             {
               echo "conflict=true"
               echo "changed=false"
-              echo "release_needed=false"
               echo "conflict_files<<EOF"
               echo "$conflict_files"
               echo "EOF"
@@ -74,23 +72,10 @@ jobs:
           echo "conflict=false" >> "$GITHUB_OUTPUT"
           if [[ "$new_sha" == "$old_sha" ]]; then
             echo "changed=false" >> "$GITHUB_OUTPUT"
-            echo "release_needed=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
           echo "changed=true" >> "$GITHUB_OUTPUT"
-          if git diff --quiet "$old_sha" HEAD -- \
-            apps/desktop \
-            apps/server \
-            apps/web \
-            packages \
-            scripts \
-            package.json \
-            pnpm-lock.yaml; then
-            echo "release_needed=false" >> "$GITHUB_OUTPUT"
-          else
-            echo "release_needed=true" >> "$GITHUB_OUTPUT"
-          fi
 
       - name: Report rebase conflict
         if: steps.rebase.outputs.conflict == 'true'
@@ -157,9 +142,3 @@ jobs:
             gh issue close "$issue_number" \
               --comment "The automatic upstream rebase is working again."
           fi
-
-      - name: Build a new Linux release
-        if: steps.rebase.outputs.changed == 'true' && steps.rebase.outputs.release_needed == 'true'
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: gh workflow run fork-release-linux.yml --repo "$GITHUB_REPOSITORY" --ref main
