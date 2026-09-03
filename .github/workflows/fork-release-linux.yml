@@ -1,6 +1,18 @@
 name: Fork Linux Release
 
 on:
+  push:
+    branches:
+      - main
+    paths:
+      - apps/desktop/**
+      - apps/server/**
+      - apps/web/**
+      - packages/**
+      - scripts/**
+      - package.json
+      - pnpm-lock.yaml
+      - .github/workflows/fork-release-linux.yml
   workflow_dispatch:
 
 permissions:
