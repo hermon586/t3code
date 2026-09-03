@@ -7,8 +7,8 @@ This fork keeps a small RTL/LTR assistant-output customization on top of
 
 - `Fork Sync` checks upstream every six hours and rebases the fork-specific
   commits onto `upstream/main`.
-- A successful sync that changes application code dispatches `Fork Linux
-Release`.
+- A push to `main` that changes application code triggers `Fork Linux Release`,
+  including pushes created by automatic syncs and manual conflict resolution.
 - `Fork Linux Release` publishes an x64 AppImage and Electron update manifest
   to this fork's GitHub Releases.
 - A rebase conflict opens (or updates) an issue named `Automatic upstream sync
