@@ -72,6 +72,22 @@ function codeButton(renderer: ReactTestRenderer, label: string) {
   return button.props as ComponentProps<typeof Button>;
 }
 
+describe("ChatMarkdown direction", () => {
+  it.each(["rtl", "ltr", undefined] as const)("renders with direction=%s", (direction) => {
+    const html = renderToStaticMarkup(
+      <ChatMarkdown cwd="/tmp/project" text="שלום Hello" {...(direction ? { direction } : {})} />,
+    );
+
+    expect(html).toContain("שלום Hello");
+    const wrapper = html.slice(0, html.indexOf(">") + 1);
+    if (direction) {
+      expect(wrapper).toContain(`dir="${direction}"`);
+    } else {
+      expect(wrapper).not.toContain("dir=");
+    }
+  });
+});
+
 describe("ChatMarkdown streaming", () => {
   it("preserves code controls and details without highlighting an unchanged fence again", async () => {
     const highlighter = await getSyntaxHighlighterPromise("text");

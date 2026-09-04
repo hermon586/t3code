@@ -1959,7 +1959,6 @@ function areMarkdownFileLinkPropsEqual(
 function useChatMarkdownState({
   text,
   cwd,
-  direction,
   threadRef,
   environmentId: explicitEnvironmentId,
   onTaskListChange,
@@ -2890,6 +2889,7 @@ const CHAT_MARKDOWN_COMPONENTS = {
 
 function ChatMarkdown({
   text,
+  direction,
   className,
   lineBreaks = false,
   parseRawHtml = true,
