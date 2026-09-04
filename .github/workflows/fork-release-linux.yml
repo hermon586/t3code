@@ -55,10 +55,10 @@ jobs:
             --sha "$GITHUB_SHA" \
             --github-output
 
-      - name: Install AppImage build dependency
+      - name: Install Linux build dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y imagemagick
+          sudo apt-get install -y imagemagick libsecret-1-dev pkg-config
 
       - name: Build Linux AppImage
         env:
