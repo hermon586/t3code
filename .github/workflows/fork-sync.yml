@@ -1,6 +1,9 @@
 name: Fork Sync
 
 on:
+  push:
+    branches: [main]
+    paths: [.github/workflows/fork-sync.yml]
   schedule:
     - cron: "17 */6 * * *"
   workflow_dispatch:
@@ -16,7 +19,7 @@ concurrency:
 
 jobs:
   sync:
-    name: Rebase custom changes onto upstream
+    name: Merge upstream into the fork
     if: github.repository == 'hermon586/t3code'
     runs-on: ubuntu-24.04
     timeout-minutes: 15
@@ -35,8 +38,8 @@ jobs:
           git remote add upstream https://github.com/pingdotgg/t3code.git
           git fetch --no-tags upstream main
 
-      - id: rebase
-        name: Rebase onto upstream main
+      - id: merge
+        name: Merge onto upstream main
         shell: bash
         run: |
           set -euo pipefail
@@ -50,11 +53,11 @@ jobs:
           fi
 
           set +e
-          git rebase upstream/main
-          rebase_status=$?
+          git merge --no-edit upstream/main
+          merge_status=$?
           set -e
 
-          if (( rebase_status != 0 )); then
+          if (( merge_status != 0 )); then
             conflict_files="$(git diff --name-only --diff-filter=U)"
             {
               echo "conflict=true"
@@ -63,7 +66,7 @@ jobs:
               echo "$conflict_files"
               echo "EOF"
             } >> "$GITHUB_OUTPUT"
-            git rebase --abort
+            git merge --abort
             exit 0
           fi
 
@@ -77,12 +80,12 @@ jobs:
 
           echo "changed=true" >> "$GITHUB_OUTPUT"
 
-      - name: Report rebase conflict
-        if: steps.rebase.outputs.conflict == 'true'
+      - name: Report merge conflict
+        if: steps.merge.outputs.conflict == 'true'
         continue-on-error: true
         env:
           GH_TOKEN: ${{ github.token }}
-          CONFLICT_FILES: ${{ steps.rebase.outputs.conflict_files }}
+          CONFLICT_FILES: ${{ steps.merge.outputs.conflict_files }}
         run: |
           issue_number="$(
             gh issue list \
@@ -93,7 +96,7 @@ jobs:
           )"
           body_file="$RUNNER_TEMP/upstream-sync-conflict.md"
           {
-            echo "The scheduled rebase onto \`pingdotgg/t3code:main\` needs manual conflict resolution."
+            echo "The scheduled merge onto \`pingdotgg/t3code:main\` needs manual conflict resolution."
             echo
             echo "Conflicting files:"
             echo '```text'
@@ -117,17 +120,16 @@ jobs:
           fi
 
       - name: Fail when manual conflict resolution is required
-        if: always() && steps.rebase.outputs.conflict == 'true'
+        if: always() && steps.merge.outputs.conflict == 'true'
         run: exit 1
 
-      - name: Push rebased main
-        if: steps.rebase.outputs.changed == 'true'
+      - name: Push merged main
+        if: steps.merge.outputs.changed == 'true'
         run: |
-          git push origin HEAD:main \
-            --force-with-lease=refs/heads/main:${{ steps.rebase.outputs.old_sha }}
+          git push origin HEAD:main
 
       - name: Close resolved conflict issue
-        if: steps.rebase.outputs.conflict == 'false'
+        if: steps.merge.outputs.conflict == 'false'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -140,5 +142,5 @@ jobs:
           )"
           if [[ -n "$issue_number" ]]; then
             gh issue close "$issue_number" \
-              --comment "The automatic upstream rebase is working again."
+              --comment "The automatic upstream merge is working again."
           fi
