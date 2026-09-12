@@ -190,8 +190,10 @@ import { cn } from "~/lib/utils";
 import { useUiStateStore } from "~/uiStateStore";
 import { type TimestampFormat } from "@t3tools/contracts/settings";
 import { formatChatTimestampTooltip, formatDayAwareTimestamp } from "../../timestampFormat";
-import { useLocalStorage } from "../../hooks/useLocalStorage";
-import * as Schema from "effect/Schema";
+import {
+  useAssistantOutputDirection,
+  type AssistantOutputDirection,
+} from "../../hooks/useAssistantOutputDirection";
 
 import {
   buildInlineTerminalContextText,
@@ -314,9 +316,6 @@ const TIMELINE_MAINTAIN_SCROLL_AT_END = {
     layout: true,
   },
 } as const satisfies MaintainScrollAtEndOptions;
-const AssistantOutputDirection = Schema.Literals(["ltr", "rtl"]);
-type AssistantOutputDirection = typeof AssistantOutputDirection.Type;
-const ASSISTANT_OUTPUT_DIRECTION_STORAGE_KEY = "t3code:assistant-output-direction";
 
 // ---------------------------------------------------------------------------
 // Props (public API)
@@ -432,11 +431,7 @@ export const MessagesTimeline = memo(function MessagesTimeline({
   topFadeEnabled = false,
   loadEarlier = null,
 }: MessagesTimelineProps) {
-  const [assistantOutputDirection, setAssistantOutputDirection] = useLocalStorage(
-    ASSISTANT_OUTPUT_DIRECTION_STORAGE_KEY,
-    "ltr",
-    AssistantOutputDirection,
-  );
+  const [assistantOutputDirection, setAssistantOutputDirection] = useAssistantOutputDirection();
   const [expandedTurnIds, setExpandedTurnIds] = useState<ReadonlySet<TurnId>>(new Set());
   const [expandedWorkGroupIds, setExpandedWorkGroupIds] = useState<ReadonlySet<string>>(new Set());
   const listIdentityKey = displayThreadKey ?? routeThreadKey;

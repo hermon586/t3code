@@ -6,6 +6,10 @@ include a skill when the task needs more context.
 Messages can contain up to 120,000 characters. Longer drafts stay in the composer
 so you can shorten them or split them into several messages.
 
+On web and desktop, use the direction button below an assistant message to switch
+between left-to-right and right-to-left reading. Questions from the agent and their
+answer options follow the same preference.
+
 ## Attach files
 
 Attach up to eight files per message. Images can be up to 10 MB; other files can
