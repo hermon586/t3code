@@ -6,9 +6,11 @@ include a skill when the task needs more context.
 Messages can contain up to 120,000 characters. Longer drafts stay in the composer
 so you can shorten them or split them into several messages.
 
-On web and desktop, use the direction button below an assistant message to switch
-between left-to-right and right-to-left reading. Questions from the agent and their
-answer options follow the same preference.
+Pasting 32 KiB or more of text adds that fragment as a text-file attachment so
+the agent can inspect it without filling the model context. A smaller paste also
+becomes an attachment when inserting it would exceed the message limit. On a
+hardware keyboard, use `Cmd+Shift+V` on Apple devices or `Ctrl+Shift+V` elsewhere
+to keep a large paste editable in the composer instead.
 
 ## Attach files
 
@@ -208,3 +210,9 @@ automatically. HTML previews cannot access your T3 Code session.
 
 On mobile, select a PDF attachment or link to open it. iOS uses the native viewer;
 Android opens a compatible installed file viewer.
+
+## Reading direction
+
+On web and desktop, use the direction button below an assistant message to switch
+between left-to-right and right-to-left reading. Questions from the agent and their
+answer options follow the same preference.
