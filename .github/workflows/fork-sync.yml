@@ -89,6 +89,7 @@ jobs:
         run: |
           issue_number="$(
             gh issue list \
+              --repo "$GITHUB_REPOSITORY" \
               --state open \
               --search '"Automatic upstream sync conflict" in:title' \
               --json number \
@@ -135,6 +136,7 @@ jobs:
         run: |
           issue_number="$(
             gh issue list \
+              --repo "$GITHUB_REPOSITORY" \
               --state open \
               --search '"Automatic upstream sync conflict" in:title' \
               --json number \
@@ -142,5 +144,6 @@ jobs:
           )"
           if [[ -n "$issue_number" ]]; then
             gh issue close "$issue_number" \
+              --repo "$GITHUB_REPOSITORY" \
               --comment "The automatic upstream merge is working again."
           fi
