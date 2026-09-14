@@ -3197,7 +3197,15 @@ const CHAT_MARKDOWN_COMPONENTS = {
           resetKeys={[codeBlock.code, language, diffThemeName, isStreaming]}
           fallback={<pre {...props}>{children}</pre>}
         >
-          <Suspense fallback={<pre {...props}>{children}</pre>}>
+          {/* Reserve the block's height but stay hidden until Shiki has colored
+              it, so plain text never flashes before the highlighted version. */}
+          <Suspense
+            fallback={
+              <pre {...props} className="invisible" aria-hidden>
+                {children}
+              </pre>
+            }
+          >
             <SuspenseShikiCodeBlock
               className={codeBlock.className}
               code={codeBlock.code}
@@ -3252,6 +3260,8 @@ function ChatMarkdown({
         className,
       )}
       dir={direction}
+      // Gates the fade-in for blocks that arrive while the response streams.
+      data-streaming={componentState.isStreaming ? "" : undefined}
       onCopy={handleCopy}
     >
       <ChatMarkdownRendererContext value={componentState}>
