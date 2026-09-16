@@ -147,7 +147,9 @@ let MessagesTimeline: typeof import("./MessagesTimeline").MessagesTimeline;
 const localStorageValues = new Map<string, string>();
 let resolvePreviewAnnotationImage: typeof import("./MessagesTimeline").resolvePreviewAnnotationImage;
 
-function stubBrowserGlobals() {
+const ElementStub = class ElementStub {};
+
+function stubDomGlobals() {
   const classList = {
     add: () => {},
     remove: () => {},
@@ -161,9 +163,11 @@ function stubBrowserGlobals() {
     removeItem: (key: string) => localStorageValues.delete(key),
     clear: () => localStorageValues.clear(),
   };
+  vi.stubGlobal("Element", ElementStub);
   vi.stubGlobal("localStorage", localStorage);
   vi.stubGlobal("window", {
     localStorage,
+    Element: ElementStub,
     matchMedia,
     addEventListener: () => {},
     removeEventListener: () => {},
@@ -184,12 +188,14 @@ function stubBrowserGlobals() {
 }
 
 beforeAll(async () => {
-  stubBrowserGlobals();
+  stubDomGlobals();
   ({ MessagesTimeline, resolvePreviewAnnotationImage } = await import("./MessagesTimeline"));
 }, 30_000);
 
+// The scroll-settling test clears every global stub; mounted timeline rows
+// still touch `window` through the tooltip's focus handling.
 beforeEach(() => {
-  stubBrowserGlobals();
+  stubDomGlobals();
   localStorageValues.clear();
 });
 
