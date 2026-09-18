@@ -12,6 +12,7 @@ on:
       - scripts/**
       - package.json
       - pnpm-lock.yaml
+      - pnpm-workspace.yaml
       - .github/workflows/fork-release-linux.yml
   workflow_dispatch:
 
