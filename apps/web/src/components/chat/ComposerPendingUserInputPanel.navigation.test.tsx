@@ -8,6 +8,10 @@ import {
   type PendingUserInputDraftAnswer,
 } from "../../pendingUserInput";
 
+vi.mock("../../hooks/useAssistantOutputDirection", () => ({
+  useAssistantOutputDirection: () => ["ltr", vi.fn()],
+}));
+
 vi.mock("../ui/collapsible", () => {
   const Children = ({ children }: { children: ReactNode }) => <>{children}</>;
   return {
