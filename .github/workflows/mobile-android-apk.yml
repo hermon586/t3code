@@ -15,7 +15,8 @@ concurrency:
 jobs:
   mirror:
     name: Mirror beta APK
-    runs-on: ${{ github.repository == 'pingdotgg/t3code' && 'blacksmith-2vcpu-ubuntu-2404' || 'ubuntu-24.04' }}
+    if: github.repository == 'pingdotgg/t3code'
+    runs-on: blacksmith-2vcpu-ubuntu-2404
     timeout-minutes: 10
     permissions:
       contents: write

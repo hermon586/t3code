@@ -12,9 +12,9 @@ This fork keeps a small RTL/LTR assistant-output customization on top of
   including pushes created by automatic syncs and manual conflict resolution.
 - `Fork Linux Release` publishes an x64 AppImage and Electron update manifest
   to this fork's GitHub Releases.
-- `Mobile Android APK` and `Mobile EAS Production` use GitHub-hosted runners
-  in this fork. Their credential checks skip publishing when Google Play or
-  Expo secrets are absent.
+- `Mobile Android APK` and `Mobile EAS Production` match upstream. Their jobs
+  run only in `pingdotgg/t3code`, so they are skipped in this fork. Mobile
+  publishing does not affect `Fork Linux Release`.
 - A merge conflict opens (or updates) an issue named `Automatic upstream sync
 conflict` and leaves `main` unchanged.
 
