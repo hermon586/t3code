@@ -1,6 +1,6 @@
-import { act } from "react";
-import { createRoot, type Root } from "react-dom/client";
-import { afterEach, beforeEach, expect, it, vi } from "vite-plus/test";
+import { expect, it, vi } from "vite-plus/test";
+
+import { render } from "../../test/render";
 
 vi.mock(import("../state/server"), async (original) => {
   const actual = await original();
@@ -14,34 +14,17 @@ vi.mock(import("../state/server"), async (original) => {
 
 import ChatMarkdown from "./ChatMarkdown";
 
-let root: Root;
-let container: HTMLDivElement;
-
-beforeEach(() => {
-  localStorage.clear();
-  vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
-  container = document.body.appendChild(document.createElement("div"));
-  container.dir = "rtl";
-  root = createRoot(container);
-});
-
-afterEach(async () => {
-  await act(async () => root.unmount());
-  container.remove();
-  localStorage.clear();
-  vi.unstubAllGlobals();
-});
-
 it.each(["rtl", "ltr", undefined] as const)(
   "displays markdown in direction %s and inherits when omitted",
   async (direction) => {
-    await act(async () =>
-      root.render(
-        <ChatMarkdown cwd="/tmp/project" text="שלום Hello" {...(direction ? { direction } : {})} />,
-      ),
+    const container = document.createElement("div");
+    container.dir = "rtl";
+    await using screen = await render(
+      <ChatMarkdown cwd="/tmp/project" text="שלום Hello" {...(direction ? { direction } : {})} />,
+      { container },
     );
 
-    const paragraph = container.querySelector("p")!;
+    const paragraph = screen.container.querySelector("p")!;
     expect(paragraph.textContent).toBe("שלום Hello");
     expect(getComputedStyle(paragraph).direction).toBe(direction ?? "rtl");
   },

@@ -1,10 +1,11 @@
 import type { LegendListRef } from "@legendapp/list/react";
 import { EnvironmentId, MessageId, RuntimeRequestId, ThreadId } from "@t3tools/contracts";
-import { act, createRef, type ComponentProps } from "react";
-import { createRoot, type Root } from "react-dom/client";
-import { afterEach, beforeEach, expect, it, vi } from "vite-plus/test";
+import { createRef, type ComponentProps } from "react";
+import { expect, it, vi } from "vite-plus/test";
 
 import "~/index.css";
+
+import { act, render } from "../../../test/render";
 
 vi.mock(import("~/state/query"), async (original) => ({
   ...(await original()),
@@ -27,25 +28,9 @@ const threadRef = { environmentId, threadId: ThreadId.make("thread-rtl") };
 const createdAt = "2026-10-17T00:00:00.000Z";
 const storageKey = "t3code:assistant-output-direction";
 
-let root: Root;
-let container: HTMLDivElement;
-
-beforeEach(() => {
-  localStorage.clear();
-  vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
-  container = document.body.appendChild(document.createElement("div"));
-  container.style.cssText = "height: 1200px; width: 900px; display: flex; flex-direction: column;";
-  root = createRoot(container);
-});
-
-afterEach(async () => {
-  await act(async () => root.unmount());
-  container.remove();
-  localStorage.clear();
-  vi.unstubAllGlobals();
-});
-
 it("persists and reverses the reading direction across remounts for assistant messages and questions", async () => {
+  localStorage.clear();
+  using _storage = { [Symbol.dispose]: () => localStorage.clear() };
   const timelineProps = {
     isWorking: false,
     activeTurnInProgress: false,
@@ -124,9 +109,15 @@ it("persists and reverses the reading direction across remounts for assistant me
       />
     </>
   );
-  const toggle = (label: string) =>
+  const renderChat = () => {
+    const container = document.createElement("div");
+    container.style.cssText =
+      "height: 1200px; width: 900px; display: flex; flex-direction: column;";
+    return render(chat, { container });
+  };
+  const toggle = (container: HTMLElement, label: string) =>
     container.querySelector<HTMLButtonElement>(`button[aria-label="${label}"]`)!;
-  const assertReadingDirection = (direction: "ltr" | "rtl") => {
+  const assertReadingDirection = (container: HTMLElement, direction: "ltr" | "rtl") => {
     const paragraphs = [...container.querySelectorAll(".chat-markdown p")];
     expect(paragraphs.map((paragraph) => paragraph.textContent)).toEqual([
       "שלום, זה פלט בעברית.",
@@ -141,24 +132,25 @@ it("persists and reverses the reading direction across remounts for assistant me
     expect(getComputedStyle(option).direction).toBe(direction);
   };
 
-  await act(async () => root.render(chat));
-  await vi.waitFor(() => assertReadingDirection("ltr"));
-  await act(async () => toggle("Display assistant output right to left").click());
-  expect(localStorage.getItem(storageKey)).toBe(JSON.stringify("rtl"));
-  assertReadingDirection("rtl");
-  expect(toggle("Display assistant output left to right").getAttribute("aria-pressed")).toBe(
-    "true",
-  );
+  {
+    await using first = await renderChat();
+    const { container } = first;
+    await vi.waitFor(() => assertReadingDirection(container, "ltr"));
+    await act(() => toggle(container, "Display assistant output right to left").click());
+    expect(localStorage.getItem(storageKey)).toBe(JSON.stringify("rtl"));
+    assertReadingDirection(container, "rtl");
+    expect(
+      toggle(container, "Display assistant output left to right").getAttribute("aria-pressed"),
+    ).toBe("true");
+  }
 
-  await act(async () => root.unmount());
-  root = createRoot(container);
-  await act(async () => root.render(chat));
-  await vi.waitFor(() => assertReadingDirection("rtl"));
-
-  await act(async () => toggle("Display assistant output left to right").click());
+  await using second = await renderChat();
+  const { container } = second;
+  await vi.waitFor(() => assertReadingDirection(container, "rtl"));
+  await act(() => toggle(container, "Display assistant output left to right").click());
   expect(localStorage.getItem(storageKey)).toBe(JSON.stringify("ltr"));
-  assertReadingDirection("ltr");
-  expect(toggle("Display assistant output right to left").getAttribute("aria-pressed")).toBe(
-    "false",
-  );
+  assertReadingDirection(container, "ltr");
+  expect(
+    toggle(container, "Display assistant output right to left").getAttribute("aria-pressed"),
+  ).toBe("false");
 });
