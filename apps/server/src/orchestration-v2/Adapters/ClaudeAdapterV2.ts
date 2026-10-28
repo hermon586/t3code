@@ -138,6 +138,7 @@ import {
   type CompiledClaudeModelSelection,
 } from "../../claudeModelOptions.ts";
 import * as ServerConfig from "../../config.ts";
+import * as PortScanner from "../../preview/PortScanner.ts";
 import * as ServerSettings from "../../serverSettings.ts";
 import { expandHomePath } from "@t3tools/provider-core/server/pathExpansion";
 import { spawnAndCollect } from "@t3tools/provider-core/server/snapshotProbe";
@@ -184,7 +185,6 @@ import { providerMessageTextWithAttachmentPaths } from "@t3tools/provider-core/s
 import * as ProviderAdapter from "@t3tools/provider-core/server/ProviderAdapter";
 import {
   ProviderAdapterDriverCreateError,
-  type ProviderAdapterDriver,
   type ProviderAdapterDriverCreateInput,
 } from "@t3tools/provider-core/server/adapterDriver";
 import {
@@ -300,7 +300,6 @@ function mergeClaudeStreamUsage(
   };
 }
 export const CLAUDE_DEFAULT_INSTANCE_ID = defaultInstanceIdForDriver(CLAUDE_PROVIDER);
-const DEFAULT_CLAUDE_SETTINGS = Schema.decodeSync(ClaudeSettings)({});
 const CLAUDE_SCRIPT_EXTENSIONS = [".js", ".mjs", ".tsx", ".ts", ".jsx"];
 // The SDK has no control-request deadline; the CLI waits up to 30 s per MCP server.
 const CLAUDE_MCP_REGISTRATION_TIMEOUT = "90 seconds";
@@ -917,6 +916,7 @@ export const layerQueryRunner: Layer.Layer<
   | ChildProcessSpawner.ChildProcessSpawner
   | Crypto.Crypto
   | Path.Path
+  | PortScanner.PortDiscovery
   | ProviderEventLoggers.ProviderEventLoggers
 > = Layer.effect(
   ClaudeAgentSdkQueryRunner,
@@ -928,6 +928,8 @@ export const layerQueryRunner: Layer.Layer<
     const agentScope = yield* AgentScope;
     const platform = yield* HostProcess.Platform;
     const runFork = Effect.runForkWith(yield* Effect.context<never>());
+    const hostEnvironment = yield* HostProcess.Environment;
+    const portDiscovery = yield* PortScanner.PortDiscovery;
 
     return ClaudeAgentSdkQueryRunner.of({
       allocateSessionId: crypto
@@ -951,7 +953,15 @@ export const layerQueryRunner: Layer.Layer<
             Stream.toAsyncIterable,
           );
           // Send MCP credentials over stdin to keep them out of SDK argv and inherited command environments.
-          const { mcpServers, ...queryOptions } = input.options;
+          const { mcpServers, ...sdkOptions } = input.options;
+          // Jobs the agent starts inherit the thread, so port discovery can attribute their servers.
+          const queryOptions = {
+            ...sdkOptions,
+            env: {
+              ...(sdkOptions.env ?? hostEnvironment),
+              [PortScanner.AGENT_THREAD_ENV]: input.threadId,
+            },
+          };
           // The SDK can prepend a scope wrapper to native binaries; script entries run through node.
           const binaryPath = queryOptions.pathToClaudeCodeExecutable;
           const launch =
@@ -998,6 +1008,10 @@ export const layerQueryRunner: Layer.Layer<
           const spawnClaudeCodeProcess = (spawnOptions: ClaudeSpawnOptions) => {
             const child = spawnProcess(spawnOptions);
             spawnedProcess = child;
+            // A spawn that fails emits only "error".
+            const releaseAgent = portDiscovery.trackAgent();
+            child.once("exit", releaseAgent);
+            child.on("error", releaseAgent);
             processExited = child.exitCode !== null || child.signalCode != null;
             processExit = new Promise<void>((resolve) => {
               if (processExited) resolve();
@@ -2633,7 +2647,6 @@ type ClaudeToolItemType = Extract<
 >;
 
 interface ClaudeToolClassification {
-  readonly known: boolean;
   readonly normalizedName: string;
   readonly itemType: ClaudeToolItemType;
   readonly requestKind: ProviderRequestKind;
@@ -2675,13 +2688,11 @@ function classifyClaudeNativeTool(toolName: string): ClaudeToolClassification {
   const known = CLAUDE_KNOWN_TOOL_CLASSIFICATIONS[normalizedName];
   return known === undefined
     ? {
-        known: false,
         normalizedName,
         itemType: "dynamic_tool",
         requestKind: "command",
       }
     : {
-        known: true,
         normalizedName,
         ...known,
       };
@@ -3843,7 +3854,6 @@ interface ActiveClaudeTurnContext {
   readonly steeredSegmentUsage: Array<SDKResultMessage["usage"]>;
   readonly subagentsByTaskId: Map<string, ActiveClaudeSubagent>;
   readonly subagentsByToolUseId: Map<string, ActiveClaudeSubagent>;
-  readonly subagentNodesByTaskId: Map<string, OrchestrationV2ExecutionNode["id"]>;
   readonly promptUuid: string | null;
   promptEcho: "pending" | "confirmed";
   promptStarted: boolean;
@@ -4019,13 +4029,11 @@ type ClaudeApprovalResponse = {
 type PendingClaudeRuntimeRequest =
   | {
       readonly type: "approval";
-      readonly requestId: OrchestrationV2RuntimeRequest["id"];
       readonly requestKind: ProviderRequestKind;
       readonly decision: Deferred.Deferred<ClaudeApprovalResponse, never>;
     }
   | {
       readonly type: "user_input";
-      readonly requestId: OrchestrationV2RuntimeRequest["id"];
       readonly answers: Deferred.Deferred<ProviderUserInputAnswers, never>;
     };
 
@@ -6114,9 +6122,6 @@ export const makeClaudeAdapterV2 = Effect.fn("makeClaudeAdapterV2")(function* (
           const nodeId = existingSubagent?.task.id ?? derivedIds.nodeId;
           const childRootNodeId = existingSubagent?.childRootNodeId ?? derivedIds.childRootNodeId;
           const childThreadId = existingSubagent?.childThreadId ?? derivedIds.childThreadId;
-          if (existingSubagent === undefined) {
-            input.context.subagentNodesByTaskId.set(input.taskId, nodeId);
-          }
           const turnItemOrdinal =
             existingSubagent?.turnItemOrdinal ??
             (yield* resolveItemOrdinal(input.context, `${nativeItemId}:subagent`));
@@ -9393,7 +9398,6 @@ export const makeClaudeAdapterV2 = Effect.fn("makeClaudeAdapterV2")(function* (
               const updated = new Map(current);
               updated.set(String(artifacts.request.id), {
                 type: "user_input",
-                requestId: artifacts.request.id,
                 answers,
               });
               return updated;
@@ -9508,7 +9512,6 @@ export const makeClaudeAdapterV2 = Effect.fn("makeClaudeAdapterV2")(function* (
             const updated = new Map(current);
             updated.set(String(artifacts.request.id), {
               type: "approval",
-              requestId: artifacts.request.id,
               requestKind,
               decision,
             });
@@ -10053,7 +10056,6 @@ export const makeClaudeAdapterV2 = Effect.fn("makeClaudeAdapterV2")(function* (
               steeredSegmentUsage: [],
               subagentsByTaskId: new Map(),
               subagentsByToolUseId: new Map(),
-              subagentNodesByTaskId: new Map(),
               promptUuid,
               promptEcho: isClaudeProviderContinuationTurn(turnInput) ? "confirmed" : "pending",
               promptStarted: false,
@@ -10812,8 +10814,7 @@ export const makeClaudeAdapterV2 = Effect.fn("makeClaudeAdapterV2")(function* (
             if (
               existing === null ||
               existing.nativeThreadId !== nativeThreadId ||
-              existing.subagentsFromEarlierProcesses.has(subagent) ||
-              existing.query.stopTask === undefined
+              existing.subagentsFromEarlierProcesses.has(subagent)
             ) {
               return yield* new ProviderAdapter.ProviderAdapterProtocolError({
                 driver: CLAUDE_PROVIDER,
@@ -11134,13 +11135,3 @@ export const createClaudeAdapterV2 = Effect.fn("ClaudeAdapterV2Driver.create")(
       ),
     ),
 );
-
-export const ClaudeAdapterV2Driver: ProviderAdapterDriver<
-  ClaudeSettings,
-  ClaudeAdapterV2DriverEnv
-> = {
-  driverKind: CLAUDE_PROVIDER,
-  configSchema: ClaudeSettings,
-  defaultConfig: (): ClaudeSettings => DEFAULT_CLAUDE_SETTINGS,
-  create: (input) => createClaudeAdapterV2(input, {}),
-};
